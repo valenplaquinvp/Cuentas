@@ -373,6 +373,17 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
     <button class="btn ghost" id="moreBtn" type="button" hidden>Ver más</button>
   </section>
 
+  <section class="card" aria-labelledby="siriTitle" id="siriCard">
+    <div class="card-head"><h3 id="siriTitle">Buzón de Siri</h3><span class="pill" id="inboxPill"><i class="dot"></i><span id="inboxTxt">—</span></span></div>
+    <p class="help">Lo que le dictás al atajo queda en este buzón y se anota solo cuando abrís la app (tenés 12 horas).</p>
+    <div class="field">
+      <label for="inboxUrl">Dirección del buzón (va en el atajo)</label>
+      <div class="say"><input id="inboxUrl" type="text" readonly aria-label="Dirección del buzón"><button type="button" id="copyInbox">Copiar</button></div>
+    </div>
+    <button class="btn ghost" id="checkInbox" type="button">Revisar buzón ahora</button>
+    <p class="help">No la compartas: quien la tenga puede ver y cargar gastos en tu buzón.</p>
+  </section>
+
   <section class="card" aria-labelledby="dataTitle" id="dataCard">
     <div class="card-head"><h3 id="dataTitle">Tus datos</h3><button class="link" type="button" data-open-cats>Categorías</button></div>
     <p class="help" id="backupTxt"></p>
@@ -489,7 +500,7 @@ function defaultCategories() {
     {id:OTROS_I, name:'Otros ingresos', type:'ingreso', color:9, budget:null},
   ];
 }
-const emptyState = () => ({categories: defaultCategories(), movements: [], learned: {}, lastBackup: null});
+const emptyState = () => ({categories: defaultCategories(), movements: [], learned: {}, lastBackup: null, inbox: null});
 
 function sampleData() {
   // mes anterior completo + mes actual hasta hoy
@@ -542,7 +553,11 @@ function normalize(obj) {
   }
   const learned = {};
   if (obj.learned && typeof obj.learned === 'object') for (const [w, id] of Object.entries(obj.learned)) if (byId.has(id)) learned[w] = id;
-  return {categories: cats, movements: movs, learned, lastBackup: Number(obj.lastBackup) || null};
+  const ib = obj.inbox;
+  const inbox = ib && typeof ib.topic === 'string' && /^[a-z0-9_-]{8,64}$/i.test(ib.topic)
+    ? {topic: ib.topic, seen: Array.isArray(ib.seen) ? ib.seen.filter(x => typeof x === 'string').slice(-300) : []}
+    : null;
+  return {categories: cats, movements: movs, learned, lastBackup: Number(obj.lastBackup) || null, inbox};
 }
 
 let storageOk = true;
@@ -768,7 +783,9 @@ function showResult(r) {
   if (!items.length) { box.hidden = true; return; }
   const anyAsk = items.some(x => !x.a.matched && !x.a.fixed);
   if (anyAsk) box.classList.add('ask');
-  const head = anyAsk ? `${ICON.alert}Anotado, falta la categoría` : `${ICON.ok}${items.length > 1 ? `Anoté ${items.length} movimientos` : 'Anotado'}`;
+  const siri = r.via === 'buzon' ? ' desde Siri' : '';
+  const head = anyAsk ? `${ICON.alert}Anotado${siri}, falta la categoría` : `${ICON.ok}${items.length > 1 ? `Anoté ${items.length} movimientos${siri}` : 'Anotado' + siri}`;
+  const failTxt = r.fails && r.fails.length ? `<p class="msg err">No pude anotar (no encontré el monto): ${r.fails.map(f => '“' + esc(f) + '”').join(', ')}</p>` : '';
   const body = items.map(({a, m}) => {
     const c = catById(m.catId) || {name: '—', color: 9};
     const inc = m.type === 'ingreso';
@@ -787,7 +804,7 @@ function showResult(r) {
       </div>
     </div>`;
   }).join('');
-  box.innerHTML = `<div class="res-head"><p>${head}</p>${close}</div>${heard}${body}
+  box.innerHTML = `<div class="res-head"><p>${head}</p>${close}</div>${heard}${failTxt}${body}
     <div class="res-actions"><button class="sbtn" type="button" data-res-undo>Deshacer ${items.length > 1 ? 'todo' : ''}</button></div>`;
 }
 $('#result').addEventListener('click', e => {
@@ -1208,6 +1225,7 @@ $('#ioGo').onclick = () => {
   try { data = normalize(JSON.parse(t)); }
   catch (e) { el.textContent = e instanceof SyntaxError ? 'Eso no es un respaldo válido. Revisá que esté completo.' : e.message; el.hidden = false; return; }
   const prev = state;
+  if (!data.inbox) data.inbox = prev.inbox;
   state = data; save();
   settleMonth(); resetForm(); $('#result').hidden = true; renderAll();
   $('#ioDlg').close();
@@ -1224,20 +1242,108 @@ $('#resetBtn').onclick = () => {
   }
   clearTimeout(armTimer); b.classList.remove('armed'); b.textContent = 'Empezar de cero';
   const prev = state;
-  state = emptyState(); save();
+  state = emptyState(); state.inbox = prev.inbox; save();
   ui.month = todayISO().slice(0, 7); ui.f.cat = ''; ui.lastAdded = []; $('#result').hidden = true;
   resetForm(); renderAll();
   toast('Arrancaste de cero', 'Deshacer', () => { state = prev; save(); settleMonth(); renderAll(); });
 };
 $('#sampleBtn').onclick = () => {
   const prev = state;
-  state = sampleData(); save(); settleMonth(); ui.f.cat = '';
+  state = sampleData(); state.inbox = prev.inbox; save(); settleMonth(); ui.f.cat = '';
   resetForm(); renderAll();
   toast('Cargaste datos de ejemplo', 'Deshacer', () => { state = prev; save(); settleMonth(); renderAll(); });
 };
 $('#modeTxt').innerHTML = standalone
-  ? 'Estás usando la app instalada. Ojo: en iPhone guarda sus datos aparte de Safari; si usás el atajo de Siri, usá la app desde Safari.'
-  : 'Estás en Safari. El atajo de Siri también abre Safari, así que comparten los mismos datos.';
+  ? 'Estás en la app instalada.'
+  : 'Estás en Safari. Ojo: la app instalada en inicio guarda sus datos (y su buzón) aparte de Safari.';
+
+
+/* ================= buzón de Siri (ntfy.sh) ================= */
+const INBOX_BASE = 'https://ntfy.sh/';
+function ensureInbox() {
+  const fresh = load(); if (fresh) state = fresh;
+  if (state.inbox) return;
+  const abc = 'abcdefghijkmnpqrstuvwxyz23456789', a = new Uint8Array(24);
+  crypto.getRandomValues(a);
+  state.inbox = {topic: 'cc-' + [...a].map(b => abc[b % 32]).join(''), seen: []};
+  save();
+}
+function renderInbox() {
+  const url = state.inbox ? INBOX_BASE + state.inbox.topic : '';
+  const inp = $('#inboxUrl'); if (inp.value !== url) inp.value = url;
+  const pill = $('#inboxPill'), t = $('#inboxTxt'), st = ui.inbox;
+  pill.className = 'pill';
+  if (!st) t.textContent = 'Sin revisar';
+  else if (st.checking) t.textContent = 'Revisando…';
+  else if (!st.ok) { pill.classList.add('warn'); t.textContent = 'Sin conexión'; }
+  else { const d = new Date(st.at); t.textContent = `Revisado ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+}
+ui.inbox = null;
+let inboxBusy = false;
+async function checkInbox(manual) {
+  if (inboxBusy || !state.inbox) return;
+  inboxBusy = true;
+  ui.inbox = {...(ui.inbox || {}), checking: true}; renderInbox();
+  try {
+    const res = await fetch(`${INBOX_BASE}${encodeURIComponent(state.inbox.topic)}/json?poll=1&since=all`, {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const msgs = (await res.text()).split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } })
+      .filter(m => m && m.event === 'message' && typeof m.id === 'string' && typeof m.message === 'string')
+      .sort((a, b) => a.time - b.time);
+    ui.inbox = {ok: true, at: Date.now()};
+    const n = processInbox(msgs);
+    if (manual && !n) toast('No hay nada nuevo en el buzón');
+  } catch (e) {
+    ui.inbox = {ok: false, at: Date.now()};
+    if (manual) toast('No pude revisar el buzón. ¿Tenés internet?');
+  } finally {
+    inboxBusy = false; renderInbox();
+  }
+}
+function processInbox(msgs) {
+  const ids = [], fails = [], texts = [];
+  let lastDate = null;
+  mutate(() => {
+    if (!state.inbox) return;
+    const seen = new Set(state.inbox.seen);
+    for (const msg of msgs) {
+      if (seen.has(msg.id)) continue;
+      seen.add(msg.id);
+      const text = msg.message.trim();
+      if (!text) continue;
+      texts.push(text);
+      const when = new Date((Number(msg.time) || Date.now() / 1000) * 1000);
+      const res = VozParser.interpret(text, {categories: state.categories, learned: state.learned, today: when});
+      const good = res.filter(r => r.kind === 'add' && r.ok);
+      if (!good.length) { fails.push(text); continue; }
+      for (const r of good) {
+        const m = {id: uid(), type: r.type, amount: r.amount, catId: r.catId, date: r.date, note: r.note};
+        state.movements.push(m);
+        ids.push({id: m.id, matched: r.matched});
+        lastDate = r.date;
+      }
+    }
+    state.inbox.seen = [...seen].slice(-300);
+  });
+  if (!texts.length) return 0;
+  if (ids.length) {
+    if (lastDate && ymOf(lastDate) !== ui.month) { ui.month = ymOf(lastDate); renderAll(); }
+    ui.lastAdded = ids;
+    showResult({kind: 'added', text: texts.join(' · '), via: 'buzon', fails});
+    $('#result').scrollIntoView({behavior: 'smooth', block: 'center'});
+  } else {
+    showResult({kind: 'error', text: fails.join(' · ')});
+  }
+  return texts.length;
+}
+$('#checkInbox').onclick = () => checkInbox(true);
+$('#copyInbox').onclick = async () => {
+  const inp = $('#inboxUrl');
+  try { await navigator.clipboard.writeText(inp.value); }
+  catch (e) { inp.focus(); inp.select(); try { document.execCommand('copy'); } catch (e2) {} }
+  toast('Dirección copiada');
+};
 
 /* ================= arranque ================= */
 function settleMonth() {
@@ -1245,17 +1351,20 @@ function settleMonth() {
   if (!state.movements.length || state.movements.some(m => ymOf(m.date) === cur)) ui.month = cur;
   else ui.month = state.movements.map(m => ymOf(m.date)).sort().pop();
 }
-function renderAll() { renderSummary(); renderDonut(); renderBudgets(); renderBars(); renderCatFilter(); renderList(); renderChips(); renderSavePill(); }
+function renderAll() { renderSummary(); renderDonut(); renderBudgets(); renderBars(); renderCatFilter(); renderList(); renderChips(); renderSavePill(); renderInbox(); }
 
 window.addEventListener('storage', e => { if (e.key === KEY) { const f = load(); if (f) { state = f; renderAll(); } } });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { const f = load(); if (f) { state = f; renderAll(); } }
+  if (document.visibilityState === 'visible') { const f = load(); if (f) { state = f; renderAll(); } checkInbox(false); }
   else if (listening) { try { rec.stop(); } catch (e) {} }
 });
 
+ensureInbox();
 settleMonth();
 resetForm();
 renderAll();
+checkInbox(false);
+setInterval(() => { if (document.visibilityState === 'visible') checkInbox(false); }, 20000);
 
 // Atajo de Siri: abre ...?voz=gasté%205000%20en%20nafta
 const params = new URLSearchParams(location.search);

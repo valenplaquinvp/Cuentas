@@ -1,5 +1,5 @@
 // Cuentas Claras — funciona sin internet. Subí el número de versión cuando cambies archivos.
-const CACHE = 'cuentas-v1';
+const CACHE = 'cuentas-v2';
 const ASSETS = ['./', './index.html', './parser.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
