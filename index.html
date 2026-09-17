@@ -235,6 +235,24 @@ th{font-weight:600;color:var(--ink-2)}
 .mov.editing{background:var(--sunk);border-radius:8px;padding-inline:6px}
 .count{font-size:13px;color:var(--ink-3);margin:0}
 
+/* asesor */
+.adv-head{display:flex;flex-direction:column;gap:4px}
+.adv-head b{font-size:19px;letter-spacing:-.015em;line-height:1.25}
+.adv-head span{font-size:14px;color:var(--ink-2)}
+.adv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.adv-list li{display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.adv-list li:first-child{border-top:0;padding-top:4px}
+.adv-ico{width:30px;height:30px;border-radius:9px;display:grid;place-items:center}
+.adv-ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.adv-good .adv-ico{background:var(--good-bg);color:var(--good)}
+.adv-warn .adv-ico{background:var(--warn-bg);color:var(--warn)}
+.adv-bad .adv-ico{background:var(--bad-bg);color:var(--bad)}
+.adv-tip .adv-ico{background:var(--sunk);color:var(--ink-2)}
+.adv-list b{display:block;font-size:15px;letter-spacing:-.01em;margin-bottom:2px}
+.adv-list p{margin:0;font-size:14px;color:var(--ink-2);line-height:1.45}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.disclaimer{font-size:12px;color:var(--ink-3);margin:0}
+
 /* data */
 .data-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .help{font-size:13.5px;color:var(--ink-2);margin:0}
@@ -368,6 +386,11 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
     <div id="movList"></div>
     <button class="btn ghost" id="moreBtn" type="button" hidden>Ver más</button>
   </section>
+
+  <details class="card fold" id="advCard" data-fold="asesor" open>
+    <summary>Tu asesor<span class="sum-side"><span class="pill" id="advPill"><i class="dot"></i><span id="advPillTxt">—</span></span></span></summary>
+    <div class="fold-body" id="advBody"></div>
+  </details>
 
   <details class="card fold" id="siriCard" data-fold="siri">
     <summary>Buzón de Siri<span class="sum-side"><span class="pill" id="inboxPill"><i class="dot"></i><span id="inboxTxt">—</span></span></span></summary>
@@ -732,11 +755,13 @@ const FOLD_KEY = 'cuentas-claras:abiertas';
 let openFolds = [];
 try { openFolds = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); } catch (e) {}
 $$('details[data-fold]').forEach(d => {
-  if (d.dataset.fold !== 'manual' && openFolds.includes(d.dataset.fold)) d.open = true;
+  if (d.dataset.fold === 'asesor') { d.open = !openFolds.includes('asesor-cerrado'); }
+  else if (d.dataset.fold !== 'manual' && openFolds.includes(d.dataset.fold)) d.open = true;
   d.addEventListener('toggle', () => {
     if (d.dataset.fold === 'manual') return;
     const set = new Set(openFolds);
-    d.open ? set.add(d.dataset.fold) : set.delete(d.dataset.fold);
+    if (d.dataset.fold === 'asesor') d.open ? set.delete('asesor-cerrado') : set.add('asesor-cerrado');
+    else d.open ? set.add(d.dataset.fold) : set.delete(d.dataset.fold);
     openFolds = [...set];
     try { localStorage.setItem(FOLD_KEY, JSON.stringify(openFolds)); } catch (e) {}
   });
@@ -1280,6 +1305,146 @@ $('#modeTxt').innerHTML = standalone
   : 'Estás en Safari. Ojo: la app instalada en inicio guarda sus datos (y su buzón) aparte de Safari.';
 
 
+
+/* ================= asesor ================= */
+const NEEDS = new Set(['super', 'alquiler', 'salud', 'transporte']);
+const FIXED = new Set(['alquiler', 'subs', 'salud']);
+const ADV_ICON = {
+  good: ICON.ok,
+  warn: ICON.alert,
+  bad: '<svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  tip: '<svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0012 3z"/></svg>',
+};
+const pctTxt = v => Math.round(v * 100) + '%';
+function advise(ym) {
+  const cur = todayISO().slice(0, 7), isCur = ym === cur;
+  const D = daysIn(ym), d = isCur ? new Date().getDate() : D;
+  const [, mm] = ym.split('-').map(Number);
+  const cuando = isCur ? 'este mes' : `en ${MES[mm - 1]}`;
+  const movs = monthMovs(ym);
+  const inc = movs.filter(m => m.type === 'ingreso').reduce((a, m) => a + m.amount, 0);
+  const gastos = movs.filter(m => m.type === 'gasto');
+  const by = {};
+  gastos.forEach(m => { by[m.catId] = (by[m.catId] || 0) + m.amount; });
+  const name = id => (catById(id) || {name: 'Otros'}).name;
+  const saved = by.ahorro || 0;
+  let fixed = 0, variable = 0, needs = 0, wants = 0;
+  for (const [id, v] of Object.entries(by)) {
+    if (id === 'ahorro') continue;
+    FIXED.has(id) ? fixed += v : variable += v;
+    NEEDS.has(id) ? needs += v : wants += v;
+  }
+  const items = [];
+  const add = (kind, title, text, w) => items.push({kind, title, text, w});
+
+  if (gastos.length < 3 && !inc) {
+    return {tone: 'tip', pill: 'Sin datos', head: `Todavía hay poco cargado ${cuando}.`, sub: 'Anotá tus ingresos y algunos gastos y te doy una devolución con números.', items: []};
+  }
+
+  // proyección (solo mes en curso, desde el día 5)
+  const canProject = isCur && d >= 5 && d < D;
+  const projVar = canProject ? variable * D / d : variable;
+  const projSpend = fixed + projVar;
+  const projLeft = inc - projSpend - saved;
+
+  if (!inc) {
+    add('warn', 'No cargaste ingresos', `Sin ingresos no puedo medir cuánto te queda. Anotá el sueldo (“cobré el sueldo…”) y el análisis se completa.`, 90);
+  } else {
+    // 1. saldo
+    if (projLeft < 0) {
+      const restantes = D - d + 1;
+      const margen = inc - saved - fixed - variable;
+      const txt = canProject
+        ? (margen > 0
+          ? `A este ritmo cerrás ${cuando} en rojo por ${money(-projLeft)}. Tu gasto variable va a ${money(Math.round(variable / d))} por día; para llegar tendrías que bajarlo a ${money(Math.floor(margen / restantes))} por día.`
+          : `Ya gastaste más de lo que entró. Frená los gastos que no sean necesarios hasta fin de mes y revisá si podés sacar algo de lo apartado como ahorro.`)
+        : `Gastaste ${money(-projLeft)} más de lo que entró. Revisá qué se puede recortar el mes que viene: los gustos son lo primero.`;
+      add('bad', canProject ? 'Vas camino a terminar en rojo' : 'El mes cerró en rojo', txt, 100);
+    } else if (canProject) {
+      const restantes = D - d + 1;
+      const margen = inc - saved - fixed - variable;
+      add(projLeft > inc * 0.1 ? 'good' : 'warn',
+        projLeft > inc * 0.1 ? 'Llegás bien a fin de mes' : 'Llegás justo a fin de mes',
+        `Si seguís a este ritmo terminás con unos ${money(Math.round(projLeft / 1000) * 1000)} libres. Hoy gastás ${money(Math.round(variable / d))} por día en lo variable; tu tope para no tocar ese colchón es ${money(Math.floor(margen / restantes))} por día.`,
+        projLeft > inc * 0.1 ? 40 : 70);
+    }
+
+    // 2. tasa de ahorro
+    const rate = (saved + Math.max(0, projLeft)) / inc;
+    if (rate >= 0.2) add('good', `Ahorrás el ${pctTxt(rate)} de lo que entra`, `La referencia sana es 20% o más, así que vas bien. ${saved ? `Ya separaste ${money(saved)}.` : 'Separalo apenas cobrás para que no se “evapore”.'}`, 35);
+    else if (rate >= 0.1) add('warn', `Ahorrás el ${pctTxt(rate)}`, `Llegar al 20% serían ${money(Math.round((0.2 - rate) * inc / 1000) * 1000)} más por mes. Probá separarlo el día que cobrás, antes de gastar.`, 60);
+    else add('bad', `Ahorrás solo el ${pctTxt(Math.max(0, rate))}`, `Casi no queda resto. Empezá con algo chico y fijo, por ejemplo el 5% (${money(Math.round(inc * 0.05 / 1000) * 1000)}) apenas cobrás, y anotalo como Ahorro.`, 85);
+
+    if (!saved && projLeft > inc * 0.1) add('tip', 'Te sobra, pero no lo estás separando', `Lo que queda “suelto” en la cuenta se termina gastando. Mové una parte a ahorro ni bien cobrás y anotalo como Ahorro para verlo en la app.`, 45);
+
+    // 3. 50/30/20
+      const needsP = needs / inc;
+    const topNeed = Object.entries(by).filter(([id]) => NEEDS.has(id)).sort((a, b) => b[1] - a[1])[0];
+    if (needsP > 0.5 && topNeed) add('warn', `Lo básico se lleva el ${pctTxt(needsP)}`, `Lo recomendable es que alquiler, servicios, súper, salud y transporte no pasen el 50% del ingreso. El más pesado es ${name(topNeed[0])} (${money(topNeed[1])}, ${pctTxt(topNeed[1] / inc)}).`, 55);
+    const wantsP = wants / inc;
+    const topWant = Object.entries(by).filter(([id]) => id !== 'ahorro' && !NEEDS.has(id)).sort((a, b) => b[1] - a[1])[0];
+    if (wantsP > 0.3 && topWant) add('warn', `Los gustos ya son el ${pctTxt(wantsP)}`, `La referencia es 30%. El que más pesa es ${name(topWant[0])} con ${money(topWant[1])}.`, 65);
+    if (topWant && topWant[1] > inc * 0.04) {
+      const cut = Math.round(topWant[1] * 0.2 / 500) * 500;
+      add('tip', `Recortá un 20% en ${name(topWant[0])}`, `Son ${money(cut)} menos por mes, unos ${money(cut * 12)} al año, sin dejarlo del todo.`, 30);
+    }
+  }
+
+  // 4. comparación con el mes pasado (mismo período)
+  const prev = addMonths(ym, -1);
+  const prevBy = {};
+  monthMovs(prev).forEach(m => { if (m.type === 'gasto' && (!isCur || +m.date.slice(8) <= d)) prevBy[m.catId] = (prevBy[m.catId] || 0) + m.amount; });
+  if (Object.keys(prevBy).length) {
+    const floor = Math.max(inc * 0.02, 5000);
+    const deltas = Object.keys({...by, ...prevBy}).filter(id => id !== 'ahorro')
+      .map(id => ({id, now: by[id] || 0, before: prevBy[id] || 0}))
+      .map(x => ({...x, diff: x.now - x.before}));
+    const up = deltas.filter(x => x.before > 0 && x.diff > floor && x.now > x.before * 1.2).sort((a, b) => b.diff - a.diff)[0];
+    const down = deltas.filter(x => x.before > 0 && -x.diff > floor && x.now < x.before * 0.8).sort((a, b) => a.diff - b.diff)[0];
+    const ref = isCur ? 'a esta altura del mes pasado' : `en ${MES[+prev.slice(5) - 1]}`;
+    if (up) add('warn', `${name(up.id)} subió ${pctTxt(up.diff / up.before)}`, `Llevás ${money(up.now)} contra ${money(up.before)} ${ref}. Son ${money(up.diff)} de diferencia.`, 58);
+    if (down) add('good', `Bajaste ${name(down.id)} un ${pctTxt(-down.diff / down.before)}`, `${money(down.now)} contra ${money(down.before)} ${ref}. Ahí ganaste ${money(-down.diff)}.`, 32);
+  }
+
+  // 5. topes
+  const over = catsOf('gasto').filter(c => c.budget > 0 && (by[c.id] || 0) > c.budget);
+  if (over.length) add('bad', over.length > 1 ? `Te pasaste en ${over.length} topes` : `Te pasaste del tope de ${over[0].name}`,
+    over.map(c => `${c.name}: ${money(by[c.id])} de ${money(c.budget)}`).join(' · ') + (isCur ? '. Hasta fin de mes, ahí gasto cero.' : '. Revisá si el tope es realista o si hay que recortar.'), 80);
+  const near = catsOf('gasto').filter(c => c.budget > 0 && (by[c.id] || 0) <= c.budget && (by[c.id] || 0) >= c.budget * 0.85);
+  if (near.length && isCur) add('warn', 'Cerca del tope', near.map(c => `${c.name}: te quedan ${money(c.budget - (by[c.id] || 0))}`).join(' · ') + '.', 62);
+
+  // 6. gastos hormiga
+  const small = inc ? Math.max(inc * 0.01, 3000) : 10000;
+  const hormiga = gastos.filter(m => !FIXED.has(m.catId) && m.catId !== 'ahorro' && m.amount <= small);
+  const hSum = hormiga.reduce((a, m) => a + m.amount, 0);
+  if (hormiga.length >= 5 && (!inc || hSum > inc * 0.03)) add('tip', `${hormiga.length} gastos chicos suman ${money(hSum)}`, `Cafés, kiosco, deliverys: de a uno no se notan. Elegí uno o dos que puedas evitar esta semana.`, 50);
+
+  // 7. suscripciones
+  const subs = by.subs || 0;
+  if (subs && (!inc || subs > inc * 0.015)) add('tip', `Suscripciones: ${money(subs)} por mes`, `Son ${money(subs * 12)} al año. Revisá si usás todas; rotarlas (una por mes) es una forma fácil de bajar el gasto.`, 25);
+
+  // 8. plata quieta
+  if (inc && (saved > 0 || projLeft > inc * 0.15)) add('tip', 'Que el ahorro no quede quieto', 'Con inflación, los pesos parados pierden valor. Compará opciones como plazo fijo, fondos money market o dólares según cuándo vas a necesitar la plata, y armá de a poco un fondo de emergencia de 3 a 6 meses de gastos básicos.', 20);
+
+  items.sort((a, b) => b.w - a.w);
+  const top = items.slice(0, 5);
+  const tone = top.some(i => i.kind === 'bad') ? 'bad' : top.some(i => i.kind === 'warn') ? 'warn' : 'good';
+  const out = gastos.reduce((a, m) => a + m.amount, 0);
+  const head = tone === 'bad' ? `${cap1(cuando)} necesita un ajuste.` : tone === 'warn' ? `${cap1(cuando)} vas bien, con cosas para mejorar.` : `${cap1(cuando)} vas muy bien.`;
+  const sub = inc ? `Entraron ${money(inc)} y salieron ${money(out)}${saved ? ` (${money(saved)} a ahorro)` : ''}.` : `Salieron ${money(out)}.`;
+  return {tone, pill: tone === 'bad' ? 'Alerta' : tone === 'warn' ? 'Ojo' : 'Bien', head, sub, items: top};
+}
+const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
+function renderAdvisor() {
+  const a = advise(ui.month);
+  const pill = $('#advPill');
+  pill.className = 'pill' + (a.tone === 'bad' ? ' bad' : a.tone === 'warn' ? ' warn' : a.tone === 'good' ? ' good' : '');
+  $('#advPillTxt').textContent = a.pill;
+  $('#advBody').innerHTML = `<div class="adv-head"><b>${esc(a.head)}</b><span class="num">${esc(a.sub)}</span></div>
+    ${a.items.length ? `<ul class="adv-list">${a.items.map(i => `<li class="adv-${i.kind}"><span class="adv-ico" aria-hidden="true">${ADV_ICON[i.kind]}</span><div><b>${esc(i.title)}</b><p class="num">${esc(i.text)}</p></div></li>`).join('')}</ul>` : ''}
+    <p class="disclaimer">Orientativo, armado con los números que cargaste. No reemplaza a un asesor financiero profesional.</p>`;
+}
+
 /* ================= buzón de Siri (ntfy.sh) ================= */
 const INBOX_BASE = 'https://ntfy.sh/';
 function ensureInbox() {
@@ -1373,7 +1538,7 @@ function settleMonth() {
   if (!state.movements.length || state.movements.some(m => ymOf(m.date) === cur)) ui.month = cur;
   else ui.month = state.movements.map(m => ymOf(m.date)).sort().pop();
 }
-function renderAll() { renderSummary(); renderDonut(); renderBudgets(); renderBars(); renderCatFilter(); renderList(); renderChips(); renderSavePill(); renderInbox(); }
+function renderAll() { renderSummary(); renderDonut(); renderBudgets(); renderBars(); renderCatFilter(); renderList(); renderChips(); renderSavePill(); renderInbox(); renderAdvisor(); }
 
 window.addEventListener('storage', e => { if (e.key === KEY) { const f = load(); if (f) { state = f; renderAll(); } } });
 document.addEventListener('visibilitychange', () => {
