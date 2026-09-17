@@ -88,24 +88,27 @@ button{cursor:pointer;touch-action:manipulation}
 .empty{font-size:14px;color:var(--ink-2);padding:6px 0;margin:0}
 
 /* voice */
-.voice{border:1.5px solid var(--ink);gap:14px}
-.voice-row{display:flex;align-items:center;gap:14px}
-.mic{width:76px;height:76px;border-radius:50%;border:0;background:var(--ink);color:var(--on-ink);display:grid;place-items:center;flex:none;position:relative;padding:0}
-.mic svg{width:32px;height:32px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.voice{align-items:center;text-align:center;gap:10px;padding-block:26px 18px;border-color:var(--line)}
+.mic-stage{position:relative;width:132px;height:132px;display:grid;place-items:center}
+.mic-stage::before,.mic-stage::after{content:"";position:absolute;border-radius:50%;border:1px solid var(--line-2)}
+.mic-stage::before{inset:0}
+.mic-stage::after{inset:14px;background:var(--sunk);border-color:transparent}
+.mic{position:relative;z-index:1;width:88px;height:88px;border-radius:50%;border:0;background:var(--ink);color:var(--on-ink);display:grid;place-items:center;padding:0;transition:transform .15s ease,background-color .2s}
+.mic:active{transform:scale(.94)}
+.mic svg{width:36px;height:36px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .mic.on{background:var(--rec);color:#fff}
-.mic.on::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--rec);animation:pulse 1.2s ease-out infinite}
-@keyframes pulse{from{transform:scale(.92);opacity:1}to{transform:scale(1.18);opacity:0}}
-.voice-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
-.voice-copy b{font-size:18px;letter-spacing:-.01em}
-.voice-copy span{font-size:13.5px;color:var(--ink-2)}
-.say{display:flex;gap:8px}
+.mic-stage.on::before{border-color:var(--rec);animation:pulse 1.3s ease-out infinite}
+.mic-stage.on::after{background:transparent;border:2px solid var(--rec);opacity:.5;animation:pulse 1.3s .35s ease-out infinite}
+@keyframes pulse{from{transform:scale(.85);opacity:.9}to{transform:scale(1.12);opacity:0}}
+.mic-label{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.live{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em;min-height:0;color:var(--ink);max-width:32ch;text-wrap:balance}
+.live:empty{display:none}
+.say{display:flex;gap:8px;width:100%}
 .say input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:0 13px;height:48px;font-size:16px}
 .say input:focus{outline:none;border-color:var(--ink)}
 .say button{height:48px;border-radius:12px;border:0;background:var(--ink);color:var(--on-ink);font-weight:600;padding:0 16px}
-.examples{display:flex;gap:6px;overflow-x:auto;margin-inline:-16px;padding-inline:16px;scrollbar-width:none}
-.examples::-webkit-scrollbar{display:none}
-.examples button{flex:none;border:1px dashed var(--line-2);background:none;border-radius:99px;padding:6px 11px;font-size:13px;color:var(--ink-2);white-space:nowrap}
-.msg{font-size:14px;border-radius:12px;padding:10px 12px;margin:0}
+.textlink{border:0;background:none;color:var(--ink-3);font-size:13.5px;font-weight:600;padding:4px 8px;text-decoration:underline;text-underline-offset:3px}
+.msg{font-size:14px;border-radius:12px;padding:10px 12px;margin:0;text-align:left;width:100%}
 .msg.err{background:var(--bad-bg);color:var(--bad)}
 .msg.info{background:var(--sunk);color:var(--ink)}
 
@@ -138,11 +141,14 @@ button{cursor:pointer;touch-action:manipulation}
 .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:7px 12px 7px 10px;font-size:14px;font-weight:500}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
 .chip .sw{width:8px;height:8px;border-radius:50%}
-details.manual>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:17px}
-details.manual>summary::-webkit-details-marker{display:none}
-details.manual>summary::after{content:"+";font-size:22px;font-weight:400;color:var(--ink-3)}
-details.manual[open]>summary::after{content:"–"}
-.manual-body{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+details.fold{display:block;padding:0}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px;font-weight:700;font-size:17px;letter-spacing:-.01em}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary .sum-side{margin-left:auto;font-size:14px;font-weight:500;color:var(--ink-3);white-space:nowrap}
+details.fold>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg) translateY(-3px);transition:transform .2s;flex:none;margin-left:4px}
+details.fold:not(:has(.sum-side))>summary::after{margin-left:auto}
+details.fold[open]>summary::after{transform:rotate(225deg) translate(-2px,-1px)}
+.fold-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px}
 .amount{display:flex;align-items:center;gap:6px;border-bottom:2px solid var(--line-2)}
 .amount:focus-within{border-color:var(--ink)}
 .amount span{font-size:26px;font-weight:600;color:var(--ink-3)}
@@ -285,37 +291,28 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
   </section>
 
   <!-- VOZ -->
-  <section class="card voice" aria-labelledby="voiceTitle">
-    <div class="voice-row">
+  <section class="card voice" aria-label="Cargar con la voz">
+    <div class="mic-stage" id="micStage">
       <button class="mic" id="micBtn" type="button" aria-label="Hablar">
-        <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4M8 22h8"/></svg>
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg>
       </button>
-      <div class="voice-copy">
-        <b id="voiceTitle">Decilo y lo anoto</b>
-        <span id="voiceSub">Tocá el micrófono y hablá: “gasté 5 lucas en nafta”.</span>
-      </div>
     </div>
-    <form class="say" id="sayForm" autocomplete="off">
-      <input id="sayIn" type="text" enterkeyhint="send" placeholder="…o escribilo acá" aria-label="Frase del gasto">
+    <p class="mic-label" id="micLabel">Tocá y decí tu gasto</p>
+    <p class="live" id="live" aria-live="polite"></p>
+    <form class="say" id="sayForm" autocomplete="off" hidden>
+      <input id="sayIn" type="text" enterkeyhint="send" placeholder="Ej: 12 lucas en el súper" aria-label="Frase del gasto">
       <button type="submit">Anotar</button>
     </form>
-    <div class="examples" id="examples" aria-label="Ejemplos">
-      <button type="button">gasté 5 lucas en nafta</button>
-      <button type="button">ayer 12.500 en el súper</button>
-      <button type="button">cobré el sueldo 2 palos</button>
-      <button type="button">¿cuánto gasté en comida este mes?</button>
-      <button type="button">3000 de café y 8 mil de uber</button>
-    </div>
+    <button class="textlink" type="button" id="toggleType">Escribir en vez de hablar</button>
     <p class="msg err" id="voiceErr" hidden></p>
   </section>
 
   <section class="card result" id="result" hidden aria-live="polite"></section>
 
   <!-- MANUAL -->
-  <section class="card" id="addCard">
-    <details class="manual" id="manual">
-      <summary id="addTitle">Cargar a mano</summary>
-      <div class="manual-body">
+  <details class="card fold" id="addCard" data-fold="manual">
+      <summary><span id="addTitle">Cargar a mano</span></summary>
+      <div class="fold-body">
         <div class="seg" role="group" aria-label="Tipo">
           <button type="button" id="tGasto" aria-pressed="true">Gasto</button>
           <button type="button" id="tIngreso" aria-pressed="false">Ingreso</button>
@@ -332,13 +329,12 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
           <button class="btn ghost" id="cancelEdit" type="button" hidden>Cancelar edición</button>
         </form>
       </div>
-    </details>
-  </section>
+  </details>
 
-  <section class="card" aria-labelledby="donutTitle">
-    <div class="card-head"><h3 id="donutTitle">En qué se fue</h3><span class="muted num" id="donutSub" style="font-size:14px"></span></div>
-    <div id="donutArea"></div>
-  </section>
+  <details class="card fold" id="donutCard" data-fold="donut">
+    <summary>En qué se fue<span class="sum-side num" id="donutSub"></span></summary>
+    <div class="fold-body"><div id="donutArea"></div></div>
+  </details>
 
   <section class="card" aria-labelledby="budTitle">
     <div class="card-head"><h3 id="budTitle">Presupuestos</h3><button class="link" type="button" data-open-cats>Editar</button></div>
@@ -373,8 +369,9 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
     <button class="btn ghost" id="moreBtn" type="button" hidden>Ver más</button>
   </section>
 
-  <section class="card" aria-labelledby="siriTitle" id="siriCard">
-    <div class="card-head"><h3 id="siriTitle">Buzón de Siri</h3><span class="pill" id="inboxPill"><i class="dot"></i><span id="inboxTxt">—</span></span></div>
+  <details class="card fold" id="siriCard" data-fold="siri">
+    <summary>Buzón de Siri<span class="sum-side"><span class="pill" id="inboxPill"><i class="dot"></i><span id="inboxTxt">—</span></span></span></summary>
+    <div class="fold-body">
     <p class="help">Lo que le dictás al atajo queda en este buzón y se anota solo cuando abrís la app (tenés 12 horas).</p>
     <div class="field">
       <label for="inboxUrl">Dirección del buzón (va en el atajo)</label>
@@ -382,10 +379,12 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
     </div>
     <button class="btn ghost" id="checkInbox" type="button">Revisar buzón ahora</button>
     <p class="help">No la compartas: quien la tenga puede ver y cargar gastos en tu buzón.</p>
-  </section>
+    </div>
+  </details>
 
-  <section class="card" aria-labelledby="dataTitle" id="dataCard">
-    <div class="card-head"><h3 id="dataTitle">Tus datos</h3><button class="link" type="button" data-open-cats>Categorías</button></div>
+  <details class="card fold" id="dataCard" data-fold="data">
+    <summary>Tus datos<span class="sum-side" id="dataSide"></span></summary>
+    <div class="fold-body">
     <p class="help" id="backupTxt"></p>
     <div class="data-grid">
       <button class="btn" id="exportBtn" type="button">Hacer respaldo</button>
@@ -393,8 +392,10 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
       <button class="btn ghost" id="sampleBtn" type="button">Ver ejemplo</button>
       <button class="btn danger" id="resetBtn" type="button">Empezar de cero</button>
     </div>
+    <button class="btn ghost" type="button" data-open-cats>Categorías y topes</button>
     <p class="help" id="modeTxt"></p>
-  </section>
+    </div>
+  </details>
 
   <p class="foot">Todo se guarda en este celular, sin cuentas ni servidores. Hacé un respaldo cada tanto: si borrás los datos de Safari, se pierden.</p>
 </div>
@@ -622,10 +623,11 @@ function renderSavePill() {
   if (!storageOk) { p.classList.add('bad'); t.textContent = 'No se pudo guardar'; }
   else if (state.movements.length && (age === null || age >= 7)) { p.classList.add('warn'); t.textContent = 'Hacé un respaldo'; }
   else t.textContent = 'Guardado';
+  $('#dataSide').textContent = age === null ? (state.movements.length ? 'Sin respaldo' : '') : `Respaldo: ${age === 0 ? 'hoy' : age === 1 ? 'ayer' : `hace ${age} d`}`;
   const bt = $('#backupTxt');
   bt.innerHTML = age === null ? 'Todavía no hiciste ningún respaldo.' : `Último respaldo: <b>${age === 0 ? 'hoy' : age === 1 ? 'ayer' : `hace ${age} días`}</b>.`;
 }
-$('#savePill').onclick = () => $('#dataCard').scrollIntoView({behavior: 'smooth', block: 'center'});
+$('#savePill').onclick = () => { $('#dataCard').open = true; $('#dataCard').scrollIntoView({behavior: 'smooth', block: 'center'}); };
 
 function renderSummary() {
   $('#monthLbl').textContent = monthName(ui.month);
@@ -665,17 +667,18 @@ let rec = null, listening = false, recErr = null, recTimer = null;
 function setListening(on) {
   listening = on;
   $('#micBtn').classList.toggle('on', on);
+  $('#micStage').classList.toggle('on', on);
   $('#micBtn').setAttribute('aria-label', on ? 'Dejar de escuchar' : 'Hablar');
-  $('#voiceTitle').textContent = on ? 'Te escucho…' : 'Decilo y lo anoto';
-  $('#voiceSub').textContent = on ? 'Decí el monto y en qué. Cuando termines, frená.' : 'Tocá el micrófono y hablá: “gasté 5 lucas en nafta”.';
+  $('#micLabel').textContent = on ? 'Te escucho… tocá para terminar' : 'Tocá y decí tu gasto';
+  if (!on) $('#live').textContent = '';
 }
 function voiceError(msg) { const e = $('#voiceErr'); e.innerHTML = msg; e.hidden = !msg; }
-const KEYBOARD_TIP = 'Mientras tanto, tocá el campo de texto y usá el <b>micrófono del teclado</b>: funciona igual.';
+const KEYBOARD_TIP = 'Mientras tanto, tocá <b>Escribir en vez de hablar</b> y usá el micrófono del teclado: funciona igual.';
 
 $('#micBtn').onclick = () => {
   voiceError('');
   if (listening) { try { rec.stop(); } catch (e) {} return; }
-  if (!SR) { voiceError('Este navegador no tiene reconocimiento de voz. ' + KEYBOARD_TIP); $('#sayIn').focus(); return; }
+  if (!SR) { voiceError('Este navegador no tiene reconocimiento de voz. Escribilo o usá el micrófono del teclado.'); showType(true); return; }
   try {
     rec = new SR();
     rec.lang = 'es-AR';
@@ -689,6 +692,7 @@ $('#micBtn').onclick = () => {
     let txt = '';
     for (const r of e.results) txt += r[0].transcript;
     $('#sayIn').value = txt.trim();
+    $('#live').textContent = txt.trim();
   };
   rec.onerror = e => { recErr = e.error; };
   rec.onend = () => {
@@ -715,9 +719,27 @@ $('#sayForm').addEventListener('submit', e => {
   if (handleText(t, 'texto') !== false) $('#sayIn').value = '';
   $('#sayIn').blur();
 });
-$('#examples').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  $('#sayIn').value = b.textContent; $('#sayIn').focus();
+function showType(focus) {
+  const f = $('#sayForm');
+  f.hidden = false;
+  $('#toggleType').hidden = true;
+  if (focus) $('#sayIn').focus();
+}
+$('#toggleType').onclick = () => showType(true);
+
+/* secciones desplegables: recuerda cuáles dejaste abiertas */
+const FOLD_KEY = 'cuentas-claras:abiertas';
+let openFolds = [];
+try { openFolds = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); } catch (e) {}
+$$('details[data-fold]').forEach(d => {
+  if (d.dataset.fold !== 'manual' && openFolds.includes(d.dataset.fold)) d.open = true;
+  d.addEventListener('toggle', () => {
+    if (d.dataset.fold === 'manual') return;
+    const set = new Set(openFolds);
+    d.open ? set.add(d.dataset.fold) : set.delete(d.dataset.fold);
+    openFolds = [...set];
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(openFolds)); } catch (e) {}
+  });
 });
 
 function speak(text) {
@@ -894,7 +916,7 @@ function startEdit(id) {
   $('#amt').value = String(m.amount).replace('.', ',');
   $('#note').value = m.note || '';
   $('#date').value = m.date;
-  $('#manual').open = true;
+  $('#addCard').open = true;
   renderTypeButtons(); renderChips(); renderList();
   $('#addCard').scrollIntoView({behavior: 'smooth', block: 'start'});
 }
@@ -904,7 +926,7 @@ $('#chips').addEventListener('click', e => {
   const b = e.target.closest('[data-cat]'); if (!b) return;
   ui.lastCat[ui.type] = b.dataset.cat; renderChips();
 });
-$('#cancelEdit').onclick = () => { resetForm(); renderList(); $('#manual').open = false; };
+$('#cancelEdit').onclick = () => { resetForm(); renderList(); $('#addCard').open = false; };
 $('#addForm').addEventListener('submit', e => {
   e.preventDefault();
   const err = $('#formErr');
@@ -931,7 +953,7 @@ $('#addForm').addEventListener('submit', e => {
   if (editing) { toast('Cambios guardados'); if (lastResult && lastResult.kind === 'added') showResult(lastResult); }
   else toast(`${ui.type === 'gasto' ? 'Gasto' : 'Ingreso'} de ${money(amount)} anotado`, 'Deshacer', () => mutate(() => { state.movements = state.movements.filter(x => x.id !== newId); }));
   resetForm();
-  if (editing) $('#manual').open = false;
+  if (editing) $('#addCard').open = false;
   renderAll();
   document.activeElement && document.activeElement.blur();
 });
