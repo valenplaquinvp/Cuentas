@@ -415,6 +415,7 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
       <button class="btn ghost" id="sampleBtn" type="button">Ver ejemplo</button>
       <button class="btn danger" id="resetBtn" type="button">Empezar de cero</button>
     </div>
+    <button class="btn ghost" id="copyBackup" type="button">Copiar respaldo (si falla el archivo)</button>
     <button class="btn ghost" type="button" data-open-cats>Categorías y topes</button>
     <p class="help" id="modeTxt"></p>
     </div>
@@ -422,6 +423,17 @@ dialog::backdrop{background:rgba(10,12,10,.5)}
 
   <p class="foot">Todo se guarda en este celular, sin cuentas ni servidores. Hacé un respaldo cada tanto: si borrás los datos de Safari, se pierden.</p>
 </div>
+
+<dialog id="txtDlg" aria-labelledby="txtTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h3 id="txtTitle">Respaldo</h3><button class="iconbtn" type="button" data-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="dlg-body">
+      <p class="help" id="txtAviso"></p>
+      <textarea class="input" id="txtArea" readonly aria-label="Texto del respaldo"></textarea>
+    </div>
+    <div class="dlg-foot"><button class="btn ghost" type="button" data-close>Cerrar</button><button class="btn" type="button" id="txtCopy">Copiar</button></div>
+  </div>
+</dialog>
 
 <dialog id="catDlg" aria-labelledby="catDlgTitle">
   <div class="dlg">
@@ -1237,26 +1249,57 @@ document.addEventListener('click', e => { const c = e.target.closest('[data-clos
 $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
 
 /* ================= respaldo ================= */
-$('#exportBtn').onclick = async () => {
+async function hacerRespaldo() {
   const stamp = Date.now();
   const json = JSON.stringify({app: 'cuentas-claras', version: 1, exportedAt: new Date(stamp).toISOString(), ...state, lastBackup: stamp}, null, 2);
   const name = `cuentas-claras-${todayISO()}.json`;
-  const markDone = () => { mutate(() => { state.lastBackup = stamp; }); toast('Respaldo listo: ' + name); };
-  try {
-    const file = new File([json], name, {type: 'application/json'});
-    if (navigator.canShare && navigator.canShare({files: [file]})) {
-      await navigator.share({files: [file], title: 'Respaldo de Cuentas Claras'});
-      markDone(); return;
+  const markDone = how => { mutate(() => { state.lastBackup = stamp; }); toast(how); };
+  let file = null;
+  try { file = new File([json], name, {type: 'application/json'}); } catch (e) {}
+
+  // 1) menú de compartir (iPhone y Android)
+  if (file && navigator.share && navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title: 'Respaldo de Cuentas Claras'}); markDone('Respaldo listo: ' + name); return; }
+    catch (err) {
+      if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) { toast('Respaldo cancelado'); return; }
     }
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a'); a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    markDone();
-  } catch (err) {
-    if (err && err.name === 'AbortError') toast('Respaldo cancelado');
-    else toast('No se pudo generar el archivo');
   }
+  // 2) descarga directa (Android suele caer acá)
+  try {
+    const url = URL.createObjectURL(file || new Blob([json], {type: 'application/json'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    markDone('Respaldo descargado: ' + name);
+    return;
+  } catch (e) {}
+  // 3) texto para copiar (último recurso)
+  mostrarTexto(json, 'No pude generar el archivo en este navegador. Copiá el texto y pegalo en una nota o en Drive.');
+}
+function mostrarTexto(json, aviso) {
+  $('#txtAviso').textContent = aviso || 'Copiá este texto y guardalo donde quieras. Sirve igual que el archivo.';
+  $('#txtArea').value = json;
+  $('#txtDlg').showModal();
+}
+$('#exportBtn').onclick = hacerRespaldo;
+$('#copyBackup').onclick = async () => {
+  const stamp = Date.now();
+  const json = JSON.stringify({app: 'cuentas-claras', version: 1, exportedAt: new Date(stamp).toISOString(), ...state, lastBackup: stamp}, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    mutate(() => { state.lastBackup = stamp; });
+    toast('Respaldo copiado: pegalo en una nota o en Drive');
+  } catch (e) {
+    mostrarTexto(json);
+  }
+};
+$('#txtCopy').onclick = async () => {
+  const ta = $('#txtArea');
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch (e) { ta.focus(); ta.select(); try { document.execCommand('copy'); } catch (e2) {} }
+  mutate(() => { state.lastBackup = Date.now(); });
+  toast('Respaldo copiado');
 };
 $('#importBtn').onclick = () => { $('#ioText').value = ''; $('#ioFile').value = ''; $('#ioErr').hidden = true; $('#ioDlg').showModal(); };
 $('#ioFile').onchange = e => {
